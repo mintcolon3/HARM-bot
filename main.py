@@ -297,12 +297,12 @@ async def formula(ctx: commands.Context):
     desc += f"\nexp per minute: **{expVoice}**"
     desc += f"\nexp per level (L): **{expFormula[0]} + {expFormula[1]}L^{expFormula[2]}**"
 
-    # Add role multipliers ro message.
+    # Add role multipliers to message.
     desc += "\n\n**ROLE MULTIPLIERS**"
     for id, mult in expRole.items():
         desc += f"\n<@&{id}>: **{mult:.2f}x**"
 
-    # Add channel multipliers ro message.
+    # Add channel multipliers to message.
     desc += "\n\n**CHANNEL MULTIPLIERS**"
     for id, mult in expChannel.items():
         desc += f"\n<#{id}>: **{mult:.2f}x**"
