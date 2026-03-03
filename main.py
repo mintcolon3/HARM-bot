@@ -38,7 +38,10 @@ expDefault = {
     "vc" : 0,
     "vc-exp" : 0,
     "vc-join" : "",
-    "bg" : "default"
+    "bg" : "default",
+    "opt" : {
+        "ping" : 1
+    }
 }
 
 expMessage = 5
@@ -100,7 +103,17 @@ async def levelUpdate(user: discord.Member):
     
     if isNewLevel:
         channel = serverObj.get_channel(1377373703418937477)
-        await channel.send(f"<@{uid}> is now level **{currentLevel}**")
+
+        # Check if user has level pings disabled.
+        if expData[uid]["opt"]["ping"] == 1:
+            desc = f"<@{uid}> is now level **{currentLevel}**"
+        else:
+            desc = f"{user.display_name} is now level **{currentLevel}**"
+        
+        if currentLevel == 1:
+            desc += "\n-# You can disable level pings by running `$pings`."
+        
+        await channel.send(desc)
     
     expData[uid]["lvl"] = currentLevel
     return expData
@@ -366,5 +379,22 @@ async def leaderboard(ctx: commands.Context, category: typing.Literal["main", "e
     )
 
     await ctx.reply(embed=embed)
+
+
+# ---------- TOGGLE REPLY PINGS ----------
+
+@bot.hybrid_command(name="pings")
+async def pings(ctx: commands.Context):
+    global expData
+    uid = str(ctx.author.id)
+
+    if expData[uid]["opt"]["ping"] == 1:
+        expData[uid]["opt"]["ping"] = 0
+        await ctx.reply(f"Disabled level pings.")
+    else:
+        expData[uid]["opt"]["ping"] = 1
+        await ctx.reply(f"Enabled level pings.")
+    
+    expSave(expData)
 
 bot.run(os.getenv("TOKEN"))
