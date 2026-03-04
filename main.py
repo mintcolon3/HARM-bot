@@ -90,6 +90,7 @@ async def levelUpdate(user: discord.Member):
     uid = str(user.id)
 
     currentLevel = expData[uid]["lvl"]
+    originalLevel = currentLevel
     isNewLevel = False
     finished = False
     while not finished:
@@ -110,7 +111,7 @@ async def levelUpdate(user: discord.Member):
         else:
             desc = f"{user.display_name} is now level **{currentLevel}**"
         
-        if currentLevel == 1:
+        if originalLevel == 0:
             desc += "\n-# You can disable level pings by running `$pings`."
         
         await channel.send(desc)
