@@ -126,55 +126,60 @@ async def expUpdate(type: str, user: discord.Member, channelID: int = None, chan
     global expData
     uid = str(user.id)
 
-    if type == "message":
-        # Calculate new exp to add.
-        newExp = expMessage
-        for role in user.roles:
-            if role.id in expRole.keys():
-                newExp *= expRole[role.id]
-        if channelID in expChannel.keys(): newExp *= expChannel[channelID]
-        newExp = math.ceil(newExp)
-
-        # Update exp values.
-        expData[uid]["msg"] += 1
-        expData[uid]["msg-exp"] += newExp
-        expData[uid]["exp"] += newExp
-    
-    elif type == "vc join":
-        currentTime = datetime.now()
-        timestamp = datetime.isoformat(currentTime)
-        expData[uid]["vc-join"] = timestamp
-
-    elif type == "vc leave":
-        currentTime = datetime.now()
-        joinTimestamp = expData[uid]["vc-join"]
-
-        # Check if join time was saved.
-        if joinTimestamp == "":
-            await channel.send(f"<@{uid}>\nSowwy, I didn't notice when you joined VC.\nI gave you 25 exp as an apology, please forgive me.")
-            expData[uid]["vc-join"] = ""
-            expData[uid]["vc-exp"] += 25
-            expData[uid]["exp"] += 25
-        else:
-            # Get minutes since user joined VC.
-            joinTime = datetime.fromisoformat(joinTimestamp)
-            timeDifference = currentTime - joinTime
-            minutes = int(timeDifference.total_seconds() // 60)
-
+    # This switch case stuff only works
+    # on Python 3.10+.
+    match type:
+        case "message":
             # Calculate new exp to add.
-            newExp = expVoice * minutes
+            newExp = expMessage
             for role in user.roles:
                 if role.id in expRole.keys():
                     newExp *= expRole[role.id]
-            if channel.id in expChannel.keys(): newExp *= expChannel[channel.id]
+            if channelID in expChannel.keys(): newExp *= expChannel[channelID]
             newExp = math.ceil(newExp)
 
             # Update exp values.
-            expData[uid]["vc-join"] = ""
-            expData[uid]["vc"] += minutes
-            expData[uid]["vc-exp"] += newExp
+            expData[uid]["msg"] += 1
+            expData[uid]["msg-exp"] += newExp
             expData[uid]["exp"] += newExp
-    
+        case "vc join":
+            currentTime = datetime.now()
+            timestamp = datetime.isoformat(currentTime)
+            expData[uid]["vc-join"] = timestamp
+
+        case "vc leave":
+            currentTime = datetime.now()
+            joinTimestamp = expData[uid]["vc-join"]
+
+            # Check if join time was saved.
+            if joinTimestamp == "":
+                await channel.send(
+                    f"<@{uid}>\nSowwy, I didn't notice when you joined VC.\nI gave you 25 exp as an apology, please forgive me.")
+                expData[uid]["vc-join"] = ""
+                expData[uid]["vc-exp"] += 25
+                expData[uid]["exp"] += 25
+            else:
+                # Get minutes since user joined VC.
+                joinTime = datetime.fromisoformat(joinTimestamp)
+                timeDifference = currentTime - joinTime
+                minutes = int(timeDifference.total_seconds() // 60)
+
+                # Calculate new exp to add.
+                newExp = expVoice * minutes
+                for role in user.roles:
+                    if role.id in expRole.keys():
+                        newExp *= expRole[role.id]
+                if channel.id in expChannel.keys(): newExp *= expChannel[channel.id]
+                newExp = math.ceil(newExp)
+
+                # Update exp values.
+                expData[uid]["vc-join"] = ""
+                expData[uid]["vc"] += minutes
+                expData[uid]["vc-exp"] += newExp
+                expData[uid]["exp"] += newExp
+        case _:
+            return
+
     expData = await levelUpdate(user)
     expSave(expData)
 
