@@ -167,7 +167,9 @@ async def expUpdate(type: str, user: discord.Member, channelID: int = None, chan
             for role in user.roles:
                 if role.id in expRole.keys():
                     newExp *= expRole[role.id]
-            if channel.id in expChannel.keys(): newExp *= expChannel[channel.id]
+            if channel is not None:
+                if channel.id in expChannel.keys():
+                    newExp *= expChannel[channel.id]
             newExp = math.ceil(newExp)
 
             # Update exp values.
@@ -207,6 +209,47 @@ async def on_ready():
     
     expSave(expData)
     print("\tUpdated exp data.")
+    
+    # Check for vc updates.
+    print("Checking for vc updates...")
+
+    print("\tChecking for leaves...")
+    for uid, userData in expData.items():
+
+        # Check if user was originally in VC.
+        if userData["vc-join"] != "":
+            user = serverObj.get_member(int(uid))
+
+            # Check if user is still in VC.
+            try:
+                userVoice = await user.fetch_voice()
+                print(f"\t\t{user.display_name} is still in VC.")
+            except Exception as bwuu:
+                print(f"\t\t{user.display_name} has left VC.")
+
+                # Update exp data.
+                await expUpdate(
+                    type = "vc leave",
+                    user = user,
+                    channelID = None
+                )
+    
+    print("\tChecking for joins...")
+    for channel in serverObj.voice_channels:
+        for user in channel.members:
+            uid = str(user.id)
+
+            # Check if user was originally not in VC.
+            if expData[uid]["vc-join"] == "":
+                print(f"\t\t{user.display_name} is now in VC.")
+                await channel.send(f"<@{uid}>\nSowwy, I didn't notice when you joined VC.\nI'll track you from now and I gave you 25 exp as an apology, please forgive me.")
+
+                # Update exp data.
+                await expUpdate(
+                    type = "vc join",
+                    user = user,
+                    channelID = channel.id
+                )
 
     # Set bot status.
     print("Setting status...")
