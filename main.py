@@ -13,6 +13,8 @@ from datetime import datetime
 # ----------------- CONSTANT DATA ------------------
 # --------------------------------------------------
 
+# global data
+
 serverID = 1377373701900865666 + 1 # i avoided the number ^w^
 
 harmLines = [
@@ -29,6 +31,8 @@ harmLines = [
     "MUSIC WAS NICHE; HARM IS FOR EVERYONE",
     "HARMONY AND RESONANCE MANAGEMENT"
 ]
+
+# exp data
 
 expDefault = {
     "lvl" : 0,
@@ -59,6 +63,13 @@ expChannel = {
     1433530124934053929 : 0 # chain-chat
 }
 
+# moc| data
+
+mocDefault = {
+    "cases" : [],
+    "other" : {}
+}
+
 # --------------------------------------------------
 # ------------------- LOAD DATA --------------------
 # --------------------------------------------------
@@ -69,6 +80,10 @@ load_dotenv()
 # Load data from exp.json file.
 with open("exp.json") as expFile:
     expData = json.load(expFile)
+
+# Load data from moc|.json file.
+with open("moc.json") as mocFile:
+    mocData = json.load(mocFile)
 
 # --------------------------------------------------
 # ------------------- FUNCTIONS --------------------
@@ -81,6 +96,14 @@ with open("exp.json") as expFile:
 def expSave(expData: dict):
     with open("exp.json", "w") as expFile:
         json.dump(expData, expFile, indent=4)
+
+
+# ---------- MOC| SAVE ----------
+# Called when any changes are made to mocData.
+
+def mocSave(mocData: dict):
+    with open("moc.json", "w") as mocFile:
+        json.dump(mocData, mocFile, indent=4)
 
 
 # ---------- LEVEL UPDATE ----------
@@ -203,12 +226,21 @@ async def on_ready():
     # Check for new server members.
     print("Checking for new members...")
     for member in serverObj.members:
-        if str(member.id) not in expData.keys():
-            print(f"\tNew member found: {member.name}")
-            expData[str(member.id)] = expDefault
+        uid = str(member.id)
+
+        if uid not in expData.keys():
+            print(f"\tNew exp member found: {member.name}")
+            expData[uid] = expDefault
+        
+        if uid not in mocData.keys():
+            print(f"\tNew moc| member found: {member.name}")
+            mocData[uid] = mocDefault
     
     expSave(expData)
     print("\tUpdated exp data.")
+
+    mocSave(mocData)
+    print("\tUpdated moc| data.")
     
     # Check for vc updates.
     print("Checking for vc updates...")
@@ -263,6 +295,17 @@ async def on_ready():
     print(f'Logged in as {bot.user.name}\n')
 
 
+# ---------- ON ERROR ----------
+
+@bot.event
+async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.reply(f"The command **{ctx.invoked_with}** does not exist.")
+    
+    elif isinstance(error, commands.MissingPermissions):
+        await ctx.reply("https://tenor.com/view/noperms-gif-27260516")
+
+
 # ---------- ON MESSAGE ----------
 
 @bot.event
@@ -270,44 +313,58 @@ async def on_message(message: discord.Message):
     if message.author.bot or message.channel is None:
         return
 
-    await expUpdate(
-        type = "message",
-        user = message.author,
-        channelID = message.channel.id
-    )
+    if message.guild == serverObj:
+        await expUpdate(
+            type = "message",
+            user = message.author,
+            channelID = message.channel.id
+        )
 
     await bot.process_commands(message)
-
-
-# ---------- ON VC UPDATE ----------
-
-@bot.event
-async def on_voice_state_update(user: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    # Check if update is user joining VC.
-    if before.channel is None and after.channel is not None:
-        await expUpdate(
-            type = "vc join",
-            user = user,
-            channel = after.channel
-        )
-    # Check if update is user leaving VC.
-    elif before.channel is not None and after.channel is None:
-        await expUpdate(
-            type = "vc leave",
-            user = user,
-            channel = before.channel
-        )
 
 
 # ---------- ON MEMBER JOIN ----------
 
 @bot.event
 async def on_member_join(member: discord.Member):
-    global expData
+    global expData, mocData
+    uid = str(member.id)
 
-    print(f"\n\nNew member joined: {member.name}")
-    expData[str(member.id)] = expDefault
-    expSave(expData)
+    if member.guild == serverObj:
+        print(f"\n\nNew member joined: {member.name}")
+
+        expData[uid] = expDefault
+        expSave(expData)
+
+        mocData[uid] = mocDefault
+        mocSave(mocData)
+
+
+# --------------------------------------------------
+# ---------------------- EXP -----------------------
+# --------------------------------------------------
+
+
+# ---------- ON VC UPDATE ----------
+
+@bot.event
+async def on_voice_state_update(user: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        # Check if update is user joining VC.
+        if before.channel is None and after.channel is not None:
+            if after.channel.guild == serverObj:
+                await expUpdate(
+                    type = "vc join",
+                    user = user,
+                    channel = after.channel
+                )
+        # Check if update is user leaving VC.
+        elif before.channel is not None and after.channel is None:
+            if before.channel.guild == serverObj:
+                await expUpdate(
+                    type = "vc leave",
+                    user = user,
+                    channel = before.channel
+                )
 
 
 # ---------- RANK ----------
@@ -440,5 +497,102 @@ async def pings(ctx: commands.Context):
         await ctx.reply(f"Enabled level pings.")
     
     expSave(expData)
+
+
+# --------------------------------------------------
+# --------------------- OTHER ----------------------
+# --------------------------------------------------
+
+
+@bot.command(name="bwan")
+@commands.has_permissions(ban_members = True)
+async def bwan(
+    ctx: commands.Context,
+    user: typing.Optional[discord.Member] = None,
+    *, reason: typing.Optional[str] = "No reason given."
+):
+    global mocData
+    localServerObj = ctx.guild
+    localServerID = ctx.guild.id
+
+    # Check if no user is given.
+    if user is None:
+        if ctx.message.reference is None:
+            await ctx.reply("No user given.\nEither reply to someone or mention them as initial argument.")
+            return
+        
+        referenceID = ctx.message.reference.message_id
+        referenceMsg = await ctx.channel.fetch_message(referenceID)
+        user = referenceMsg.author
+
+    uid = str(user.id)
+    
+    # Check if context is given.
+    if ctx.message.reference:
+        channelID = ctx.message.reference.channel_id
+        messageID = ctx.message.reference.message_id
+    else:
+        channelID = ctx.channel.id
+        messageID = ctx.message.id
+    
+    context = f"https://discord.com/channels/{localServerID}/{channelID}/{messageID}"
+
+    # Create moc| case.
+    caseID = mocData["global"]["next-id"]
+    mocData[uid]["cases"].append({
+        "id" : caseID,
+        "type" : "bwan",
+        "context" : context,
+        "reason" : reason
+    })
+    mocData["global"]["next-id"] += 1
+
+    mocSave(mocData)
+
+    # Create reply embed.
+    replyEmbed = discord.Embed(
+        color = 0x342af9,
+        title = f"{user.name} has been bwanned.",
+        description = f"**Reason:**\n> {reason}",
+        url = context,
+    )
+    replyEmbed.set_author(
+        name = localServerObj.name,
+        icon_url = localServerObj.icon.url
+    )
+    replyEmbed.set_image(
+        url = "https://cdn.discordapp.com/stickers/1404156262106792047.png?size=512&lossless=true"
+    )
+    replyEmbed.set_footer(
+        text = f"Case #{caseID}; Action done by {ctx.author.name}",
+        icon_url = ctx.author.avatar.url
+    )
+
+    # Create dm embed.
+    dmEmbed = discord.Embed(
+        color = 0x342af9,
+        title = f"You have been bwanned.",
+        description = f"**Reason:**\n> {reason}",
+        url = context
+    )
+    dmEmbed.set_author(
+        name = localServerObj.name,
+        icon_url = localServerObj.icon.url
+    )
+    dmEmbed.set_image(
+        url = "https://cdn.discordapp.com/stickers/1404156262106792047.png?size=512&lossless=true"
+    )
+    dmEmbed.set_footer(
+        text = f"Case #{caseID}; Action done by {ctx.author.name}",
+        icon_url = ctx.author.avatar.url
+    )
+
+    # Send embeds.
+    await ctx.reply(embed=replyEmbed)
+    await user.send(embed=dmEmbed)
+
+    # Check if action is wanted.
+    if reason.startswith("// "):
+        await user.ban(reason=reason)
 
 bot.run(os.getenv("TOKEN"))
