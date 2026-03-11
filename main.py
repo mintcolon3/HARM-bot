@@ -32,6 +32,8 @@ harmLines = [
     "HARMONY AND RESONANCE MANAGEMENT"
 ]
 
+numberEmojis = [[None]*10]*3
+
 # exp data
 
 expDefault = {
@@ -109,7 +111,7 @@ def mocSave(mocData: dict):
 # ---------- LEVEL UPDATE ----------
 # Called when exp is updated, checks if level should also be updated.
 
-async def levelUpdate(user: discord.Member):
+async def levelUpdate(user: discord.Member, message: discord.Message = None):
     uid = str(user.id)
 
     currentLevel = expData[uid]["lvl"]
@@ -126,18 +128,25 @@ async def levelUpdate(user: discord.Member):
             finished = True
     
     if isNewLevel:
-        channel = serverObj.get_channel(1377373703418937477)
-
-        # Check if user has level pings disabled.
-        if expData[uid]["opt"]["ping"] == 1:
-            desc = f"<@{uid}> is now level **{currentLevel}**"
-        else:
+        if message is None:
+            channel = serverObj.get_channel(1377373703418937477)
             desc = f"{user.display_name} is now level **{currentLevel}**"
-        
-        if originalLevel == 0:
-            desc += "\n-# You can disable level pings by running `$pings`."
-        
-        await channel.send(desc)
+            await channel.send(desc)
+        else:
+            emojis = [
+                await bot.fetch_application_emoji(1481376460055904310), # LE
+                await bot.fetch_application_emoji(1481376461419057313), # VE
+                await bot.fetch_application_emoji(1481376463029800961)  # L
+            ]
+
+            # Get number emojis.
+            levelText = str(currentLevel)
+            for index, number in enumerate(levelText):
+                emojis.append(numberEmojis[index][int(number)])
+            
+            # React with emojis.
+            for emoji in emojis:
+                await message.add_reaction(emoji)
     
     expData[uid]["lvl"] = currentLevel
     return expData
@@ -146,7 +155,7 @@ async def levelUpdate(user: discord.Member):
 # ---------- EXP UPDATE ----------
 # Called whenever a user sends a message, joins a VC, or leaves a VC.
 
-async def expUpdate(type: str, user: discord.Member, channelID: int = None, channel: discord.VoiceChannel = None):
+async def expUpdate(type: str, user: discord.Member, channelID: int = None, channel: discord.VoiceChannel = None, message: discord.Message = None):
     global expData
     uid = str(user.id)
 
@@ -201,7 +210,7 @@ async def expUpdate(type: str, user: discord.Member, channelID: int = None, chan
             expData[uid]["vc-exp"] += newExp
             expData[uid]["exp"] += newExp
     
-    expData = await levelUpdate(user)
+    expData = await levelUpdate(user, message)
     expSave(expData)
 
 
@@ -310,13 +319,24 @@ bot = commands.Bot(command_prefix="$", intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
-    global serverObj, expData
+    global serverObj, expData, numberEmojis
     serverObj = bot.get_guild(1377373701900865667)
 
     # Sync slash commands.
     print("Syncing commands...")
     await bot.tree.sync()
     print("\tCommands have been synced.")
+
+    # Create numberEmojis list.
+    print("Creating numberEmojis list...")
+    for emoji in await bot.fetch_application_emojis():
+        emojiName = emoji.name
+        if not emojiName.startswith("_"):
+            number = int(emojiName[0])
+            copy = int(emojiName[1]) - 1
+
+            numberEmojis[copy][number] = emoji
+    print("\tCreated numberEmojis list.")
 
     # Check for new server members.
     print("Checking for new members...")
@@ -412,7 +432,8 @@ async def on_message(message: discord.Message):
         await expUpdate(
             type = "message",
             user = message.author,
-            channelID = message.channel.id
+            channelID = message.channel.id,
+            message = message
         )
 
     await bot.process_commands(message)
