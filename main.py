@@ -204,6 +204,101 @@ async def expUpdate(type: str, user: discord.Member, channelID: int = None, chan
     expData = await levelUpdate(user)
     expSave(expData)
 
+
+# ---------- MOC ACTION ----------
+# Called whenever a moc action command is run.
+
+async def mocAction(ctx: commands.Context, actionID: int, reason: str, user: discord.member = None):
+    global mocData
+    localServerObj = ctx.guild
+    localServerID = ctx.guild.id
+
+    actions = [
+        ["bwan", "bwanned", "https://cdn.discordapp.com/stickers/1404156262106792047.png?size=512&lossless=true"],
+        ["bwarn", "bwarned", "https://media.discordapp.net/stickers/1480600729893994537.webp?size=512&quality=lossless"],
+        ["bwute", "bwuted", "https://media.discordapp.net/stickers/1480600818137698414.webp?size=512&quality=lossless"],
+        ["bwick", "bwicked", "https://media.discordapp.net/stickers/1480600775100072086.webp?size=512&quality=lossless"]
+    ]
+    action = actions[actionID]
+
+    # Check if no user is given.
+    if user is None:
+        if ctx.message.reference is None:
+            await ctx.reply("No user given.\nEither reply to someone or mention them as initial argument.")
+            return False
+        
+        referenceID = ctx.message.reference.message_id
+        referenceMsg = await ctx.channel.fetch_message(referenceID)
+        user = referenceMsg.author
+
+    uid = str(user.id)
+    
+    # Check if context is given.
+    if ctx.message.reference:
+        channelID = ctx.message.reference.channel_id
+        messageID = ctx.message.reference.message_id
+    else:
+        channelID = ctx.channel.id
+        messageID = ctx.message.id
+    
+    context = f"https://discord.com/channels/{localServerID}/{channelID}/{messageID}"
+
+    # Create moc| case.
+    caseID = mocData["global"]["next-id"]
+    mocData[uid]["cases"].append({
+        "id" : caseID,
+        "type" : action[0],
+        "context" : context,
+        "reason" : reason
+    })
+    mocData["global"]["next-id"] += 1
+
+    mocSave(mocData)
+
+    # Create reply embed.
+    replyEmbed = discord.Embed(
+        color = 0x342af9,
+        title = f"{user.name} has been {action[1]}.",
+        description = f"**Reason:**\n> {reason}",
+        url = context,
+    )
+    replyEmbed.set_author(
+        name = localServerObj.name,
+        icon_url = localServerObj.icon.url
+    )
+    replyEmbed.set_image(
+        url = action[2]
+    )
+    replyEmbed.set_footer(
+        text = f"Case #{caseID}; Action done by {ctx.author.name}",
+        icon_url = ctx.author.avatar.url
+    )
+
+    # Create dm embed.
+    dmEmbed = discord.Embed(
+        color = 0x342af9,
+        title = f"You have been {action[1]}.",
+        description = f"**Reason:**\n> {reason}",
+        url = context
+    )
+    dmEmbed.set_author(
+        name = localServerObj.name,
+        icon_url = localServerObj.icon.url
+    )
+    dmEmbed.set_image(
+        url = action[2]
+    )
+    dmEmbed.set_footer(
+        text = f"Case #{caseID}; Action done by {ctx.author.name}",
+        icon_url = ctx.author.avatar.url
+    )
+
+    # Send embeds.
+    await ctx.reply(embed=replyEmbed)
+    await user.send(embed=dmEmbed)
+
+    return True
+
 # --------------------------------------------------
 # -------------------- PROGRAM ---------------------
 # --------------------------------------------------
@@ -504,6 +599,8 @@ async def pings(ctx: commands.Context):
 # --------------------------------------------------
 
 
+# ---------- BWAN USER ----------
+
 @bot.command(name="bwan")
 @commands.has_permissions(ban_members = True)
 async def bwan(
@@ -511,88 +608,32 @@ async def bwan(
     user: typing.Optional[discord.Member] = None,
     *, reason: typing.Optional[str] = "No reason given."
 ):
-    global mocData
-    localServerObj = ctx.guild
-    localServerID = ctx.guild.id
-
-    # Check if no user is given.
-    if user is None:
-        if ctx.message.reference is None:
-            await ctx.reply("No user given.\nEither reply to someone or mention them as initial argument.")
-            return
-        
-        referenceID = ctx.message.reference.message_id
-        referenceMsg = await ctx.channel.fetch_message(referenceID)
-        user = referenceMsg.author
-
-    uid = str(user.id)
-    
-    # Check if context is given.
-    if ctx.message.reference:
-        channelID = ctx.message.reference.channel_id
-        messageID = ctx.message.reference.message_id
-    else:
-        channelID = ctx.channel.id
-        messageID = ctx.message.id
-    
-    context = f"https://discord.com/channels/{localServerID}/{channelID}/{messageID}"
-
-    # Create moc| case.
-    caseID = mocData["global"]["next-id"]
-    mocData[uid]["cases"].append({
-        "id" : caseID,
-        "type" : "bwan",
-        "context" : context,
-        "reason" : reason
-    })
-    mocData["global"]["next-id"] += 1
-
-    mocSave(mocData)
-
-    # Create reply embed.
-    replyEmbed = discord.Embed(
-        color = 0x342af9,
-        title = f"{user.name} has been bwanned.",
-        description = f"**Reason:**\n> {reason}",
-        url = context,
+    actionOutput = await mocAction(
+        ctx = ctx,
+        actionID = 0,
+        reason = reason,
+        user = user
     )
-    replyEmbed.set_author(
-        name = localServerObj.name,
-        icon_url = localServerObj.icon.url
-    )
-    replyEmbed.set_image(
-        url = "https://cdn.discordapp.com/stickers/1404156262106792047.png?size=512&lossless=true"
-    )
-    replyEmbed.set_footer(
-        text = f"Case #{caseID}; Action done by {ctx.author.name}",
-        icon_url = ctx.author.avatar.url
-    )
-
-    # Create dm embed.
-    dmEmbed = discord.Embed(
-        color = 0x342af9,
-        title = f"You have been bwanned.",
-        description = f"**Reason:**\n> {reason}",
-        url = context
-    )
-    dmEmbed.set_author(
-        name = localServerObj.name,
-        icon_url = localServerObj.icon.url
-    )
-    dmEmbed.set_image(
-        url = "https://cdn.discordapp.com/stickers/1404156262106792047.png?size=512&lossless=true"
-    )
-    dmEmbed.set_footer(
-        text = f"Case #{caseID}; Action done by {ctx.author.name}",
-        icon_url = ctx.author.avatar.url
-    )
-
-    # Send embeds.
-    await ctx.reply(embed=replyEmbed)
-    await user.send(embed=dmEmbed)
 
     # Check if action is wanted.
-    if reason.startswith("// "):
+    if actionOutput and reason.startswith("// "):
         await user.ban(reason=reason)
+
+
+# ---------- BWARN USER ----------
+
+@bot.command(name="bwarn")
+@commands.has_permissions(kick_members=True)
+async def bwarn(
+    ctx: commands.Context,
+    user: typing.Optional[discord.Member] = None,
+    *, reason: typing.Optional[str] = "No reason given."
+):
+    actionOutput = await mocAction(
+        ctx = ctx,
+        actionID = 1,
+        reason = reason,
+        user = user
+    )
 
 bot.run(os.getenv("TOKEN"))
