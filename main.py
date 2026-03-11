@@ -46,7 +46,7 @@ expDefault = {
     "vc-join" : "",
     "bg" : "default",
     "opt" : {
-        "ping" : 1
+        
     }
 }
 
@@ -596,23 +596,6 @@ async def leaderboard(ctx: commands.Context, category: typing.Literal["main", "e
     )
 
     await ctx.reply(embed=embed)
-
-
-# ---------- TOGGLE REPLY PINGS ----------
-
-@bot.hybrid_command(name="pings")
-async def pings(ctx: commands.Context):
-    global expData
-    uid = str(ctx.author.id)
-
-    if expData[uid]["opt"]["ping"] == 1:
-        expData[uid]["opt"]["ping"] = 0
-        await ctx.reply(f"Disabled level pings.")
-    else:
-        expData[uid]["opt"]["ping"] = 1
-        await ctx.reply(f"Enabled level pings.")
-    
-    expSave(expData)
 
 
 # --------------------------------------------------
