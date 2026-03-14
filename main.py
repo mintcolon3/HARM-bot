@@ -62,7 +62,8 @@ expRole = {
 }
 
 expChannel = {
-    1433530124934053929 : 0 # chain-chat
+    1433530124934053929 : 0, # chain-chat
+    1450201136492711966 : 3  # question-of-the-minty
 }
 
 # moc| data
