@@ -155,17 +155,33 @@ async def levelUpdate(user: discord.Member, message: discord.Message = None):
 # ---------- EXP UPDATE ----------
 # Called whenever a user sends a message, joins a VC, or leaves a VC.
 
-async def expUpdate(type: str, user: discord.Member, channelID: int = None, channel: discord.VoiceChannel = None, message: discord.Message = None):
+async def expUpdate(
+    type: str,
+    user: discord.Member,
+    channel: discord.VoiceChannel | discord.TextChannel = None,
+    message: discord.Message = None
+):
     global expData
     uid = str(user.id)
 
     if type == "message":
         # Calculate new exp to add.
         newExp = expMessage
+
+        # Check for exp roles.
         for role in user.roles:
             if role.id in expRole.keys():
                 newExp *= expRole[role.id]
-        if channelID in expChannel.keys(): newExp *= expChannel[channelID]
+        
+        # Check for exp channels.
+        if message.channel.type in (discord.ChannelType.public_thread, discord.ChannelType.private_thread):
+            channel = message.channel.parent
+        else:
+            channel = message.channel
+        
+        if channel.id in expChannel.keys():
+            newExp *= expChannel[channel.id]
+        
         newExp = math.ceil(newExp)
 
         # Update exp values.
@@ -432,7 +448,6 @@ async def on_message(message: discord.Message):
         await expUpdate(
             type = "message",
             user = message.author,
-            channelID = message.channel.id,
             message = message
         )
 
