@@ -7,7 +7,7 @@ import typing
 from dotenv import load_dotenv
 from discord import app_commands
 from discord.ext import commands
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --------------------------------------------------
 # ----------------- CONSTANT DATA ------------------
@@ -53,6 +53,8 @@ expDefault = {
 expMessage = 5
 expVoice = 1.5
 expFormula = [20, 4, 2] # A + Bx^C
+
+expEinnin = 450 # same as 300 minutes in vc
 
 expRole = {
     1453058381903560715 : 1.2, # member #39                     ; this was loudy but i somehow didnt notice she left until rn i feel so bad :bwuuu:
@@ -227,6 +229,13 @@ async def expUpdate(
             expData[uid]["vc-exp"] += newExp
             expData[uid]["exp"] += newExp
     
+    elif type == "einninposting":
+        newExp = expEinnin
+
+        # Update exp values.
+        expData[uid]["vc-exp"] += newExp
+        expData[uid]["exp"] += newExp
+    
     expData = await levelUpdate(user, message)
     expSave(expData)
 
@@ -234,7 +243,12 @@ async def expUpdate(
 # ---------- MOC ACTION ----------
 # Called whenever a moc action command is run.
 
-async def mocAction(ctx: commands.Context, actionID: int, reason: str, user: discord.member = None):
+async def mocAction(
+    ctx: commands.Context,
+    actionID: int,
+    reason: str,
+    user: discord.member = None
+):
     global mocData
     localServerObj = ctx.guild
     localServerID = ctx.guild.id
@@ -281,11 +295,13 @@ async def mocAction(ctx: commands.Context, actionID: int, reason: str, user: dis
 
     mocSave(mocData)
 
+    reasonText = "_ _\n> ".join( reason.split("\n") )
+
     # Create reply embed.
     replyEmbed = discord.Embed(
         color = 0x342af9,
         title = f"{user.name} has been {action[1]}.",
-        description = f"**Reason:**\n> {reason}",
+        description = f"**Reason:**\n> {reasonText}",
         url = context,
     )
     replyEmbed.set_author(
@@ -304,7 +320,7 @@ async def mocAction(ctx: commands.Context, actionID: int, reason: str, user: dis
     dmEmbed = discord.Embed(
         color = 0x342af9,
         title = f"You have been {action[1]}.",
-        description = f"**Reason:**\n> {reason}",
+        description = f"**Reason:**\n> {reasonText}",
         url = context
     )
     dmEmbed.set_author(
@@ -394,8 +410,7 @@ async def on_ready():
                 # Update exp data.
                 await expUpdate(
                     type = "vc leave",
-                    user = user,
-                    channelID = None
+                    user = user
                 )
     
     print("\tChecking for joins...")
@@ -411,8 +426,7 @@ async def on_ready():
                 # Update exp data.
                 await expUpdate(
                     type = "vc join",
-                    user = user,
-                    channelID = channel.id
+                    user = user
                 )
 
     # Set bot status.
@@ -655,5 +669,119 @@ async def bwarn(
         reason = reason,
         user = user
     )
+
+
+# ---------- BWUTE USER ----------
+
+@bot.command(name="bwute")
+@commands.has_permissions(ban_members = True)
+async def bwan(
+    ctx: commands.Context,
+    user: typing.Optional[discord.Member] = None,
+    time: typing.Optional[int] = 1,
+    *, reason: typing.Optional[str] = "No reason given."
+):
+    actionOutput = await mocAction(
+        ctx = ctx,
+        actionID = 2,
+        reason = f"Timed out for {time} minute(s).\n\n{reason}",
+        user = user
+    )
+
+    print(reason, actionOutput)
+
+    # Check if action is wanted.
+    if actionOutput and reason.startswith("// "):
+        finish = timedelta(minutes=time)
+        await user.timeout(
+            timedelta(minutes=time),
+            reason = reason
+        )
+
+
+# ---------- EINNINPOSTING ----------
+
+@bot.command(name="einninposting")
+@commands.is_owner()
+async def einninposting(ctx: commands.Context, channel: discord.VoiceChannel):
+    global mocData
+
+    # Create webhook.
+    generalChannel = ctx.guild.get_channel(1377373703418937477)
+    with open("assets/images/einninpfp.png", "rb") as image:
+        eininPfp = image.read()
+    webhook = await generalChannel.create_webhook(
+        name = "einnin",
+        avatar = eininPfp
+    )
+
+    for member in channel.members:
+
+        # Give einninposting role.
+        einninRole = await ctx.guild.fetch_role(1482472458916462642)
+        await member.add_roles(einninRole)
+
+        # Send bwarn message.
+        message = await webhook.send(f"\$bwarn <@{member.id}> idling {channel.name.lower()} vc for 300 hours, farming exp")
+
+        # Create bwarn case.
+        reason = f"idling {channel.name.lower()} vc for 300 hours, farming exp"
+        uid = str(member.id)
+
+        caseID = mocData["global"]["next-id"]
+        mocData[uid]["cases"].append({
+            "id" : caseID,
+            "type" : "bwarn",
+            "context" : "context",
+            "reason" : reason
+        })
+        mocData["global"]["next-id"] += 1
+        mocSave(mocData)
+
+        replyEmbed = discord.Embed(
+            color = 0x342af9,
+            title = f"{member.name} has been bwanned.",
+            description = f"**Reason:**\n> {reason}"
+        )
+        replyEmbed.set_author(
+            name = ctx.guild.name,
+            icon_url = ctx.guild.icon.url
+        )
+        replyEmbed.set_image(
+            url = "https://media.discordapp.net/stickers/1480600729893994537.webp?size=512&quality=lossless"
+        )
+        replyEmbed.set_footer(
+            text = f"Case #{caseID}; Action done by einnin99",
+            icon_url = "https://cdn.discordapp.com/attachments/1393292119434858657/1474039772178550845/einninpfp.png?ex=69b76144&is=69b60fc4&hm=7323d59fd6fc22d4f284358347bf75a173ce5d95970ae1e03e7ebee5ea5f587c&"
+        )
+
+        dmEmbed = discord.Embed(
+            color = 0x342af9,
+            title = f"You have been bwanned.",
+            description = f"**Reason:**\n> {reason}"
+        )
+        dmEmbed.set_author(
+            name = ctx.guild.name,
+            icon_url = ctx.guild.icon.url
+        )
+        dmEmbed.set_image(
+            url = "https://media.discordapp.net/stickers/1480600729893994537.webp?size=512&quality=lossless"
+        )
+        replyEmbed.set_footer(
+            text = f"Case #{caseID}; Action done by einnin99",
+            icon_url = "https://cdn.discordapp.com/attachments/1393292119434858657/1474039772178550845/einninpfp.png?ex=69b76144&is=69b60fc4&hm=7323d59fd6fc22d4f284358347bf75a173ce5d95970ae1e03e7ebee5ea5f587c&"
+        )
+
+        await generalChannel.send(embed=replyEmbed)
+        await member.send(embed=dmEmbed)
+
+        # Give exp bonus.
+        await expUpdate(
+            type = "einninposting",
+            user = member
+        )
+    
+    # Delete webhook.
+    await webhook.delete()
 
 bot.run(os.getenv("TOKEN"))
